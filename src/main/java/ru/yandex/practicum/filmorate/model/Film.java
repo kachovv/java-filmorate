@@ -4,9 +4,6 @@ import lombok.Data;
 
 import java.time.LocalDate;
 
-/**
- * Film.
- */
 @Data
 public class Film {
     private Integer id;

@@ -10,6 +10,7 @@ import java.time.LocalDate;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 
 @Slf4j
 @RestController
@@ -45,7 +46,7 @@ public class UserController {
             log.warn("Попытка обновления без id");
             throw new ValidationException("Id должен быть указан");
         }
-        if (users.containsKey(updatedUser.getId())) {
+        if (!users.containsKey(updatedUser.getId())) {
             log.warn("Пользователь с id = {} не найден", updatedUser.getId());
             throw new NotFoundException("Пользователь с id = " + updatedUser.getId() + " не найден");
         }
@@ -62,12 +63,12 @@ public class UserController {
             existing.setName(updatedUser.getName());
         }
         existing.setBirthday(updatedUser.getBirthday());
-        log.info("Пользователь с id = {} успешно добавлен", existing.getId());
+        log.info("Пользователь с id = {} успешно обновлен", existing.getId());
         return existing;
     }
 
     private void validateUser(User user) {
-        if (user.getLogin() == null || user.getLogin().contains(" ")) {
+        if (user.getLogin() == null || user.getLogin().isBlank()) {
             log.warn("Ошибка валидации: логин = {} не валидный", user.getLogin());
             throw new ValidationException(("Логин должен быть указан и не должен содержать пробелы"));
         }
@@ -83,7 +84,7 @@ public class UserController {
 
     private void checkEmailDuplicate(String email, Integer excludeUserId) {
         boolean duplicate = users.values().stream()
-                .filter(u -> !u.getId().equals(excludeUserId))
+                .filter(u -> !Objects.equals(u.getId(), excludeUserId))
                 .anyMatch(u -> u.getEmail().equalsIgnoreCase(email));
 
         if (duplicate) {

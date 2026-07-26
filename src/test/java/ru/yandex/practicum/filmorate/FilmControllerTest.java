@@ -48,9 +48,10 @@ public class FilmControllerTest {
         update.setName("Updated film");
         update.setDescription("Good film");
         update.setDuration(120);
+        update.setReleaseDate(LocalDate.of(2010, 1, 1));
         Film updatedFilm = filmController.update(update);
 
-        assertEquals("Updated Film", updatedFilm.getName());
+        assertEquals("Updated film", updatedFilm.getName());
         assertEquals(120, updatedFilm.getDuration());
     }
 
