@@ -40,7 +40,8 @@ public class UserController {
 
     @PostMapping
     public User create(@RequestBody User user) {
-        log.info("Получен запрос на создание пользователя: {}", user);;
+        log.info("Получен запрос на создание пользователя: {}", user);
+        ;
         if (user.getName() == null || user.getName().isBlank()) {
             user.setName((user.getLogin()));
         }

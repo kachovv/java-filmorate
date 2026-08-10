@@ -85,7 +85,7 @@ public class FilmControllerTest {
         film.setDuration(100);
 
         ValidationException ex = assertThrows(ValidationException.class,
-        () -> filmController.create(film));
+                () -> filmController.create(film));
         assertEquals("Дата релиза не может быть раньше 28 декабря 1895 года", ex.getMessage());
     }
 
