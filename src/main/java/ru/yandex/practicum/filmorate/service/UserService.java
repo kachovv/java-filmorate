@@ -22,7 +22,11 @@ public class UserService {
     private final UserStorage userStorage;
 
     public void addFriend(int userId, int friendId) {
+        log.info("=== addFriend called with userId={}, friendId={} ===", userId, friendId);
         log.debug("Попытка добавить друга: userId={}, friendId={}", userId, friendId);
+        if (userId == friendId) {
+            throw new ValidationException("Нельзя добавить самого себя");
+        }
         User user = userStorage.getUserById(userId).orElseThrow(() -> new NotFoundException("Пользователь не найден"));
         User friend = userStorage.getUserById(friendId).orElseThrow(() -> new NotFoundException("Друг не найден"));
         user.getFriends().add(friendId);
@@ -30,6 +34,8 @@ public class UserService {
         userStorage.updateUser(user);
         userStorage.updateUser(friend);
         log.info("Пользователь {} и {} стали друзьями", userId, friendId);
+        log.info("Друзья пользователя {}: {}", userId, user.getFriends());
+        log.info("Друзья пользователя {}: {}", friendId, friend.getFriends());
     }
 
     public void removeFriend(int userId, int friendId) {
@@ -46,12 +52,24 @@ public class UserService {
     public List<User> getCommonFriends(int userId, int otherId) {
         log.debug("Поиск общих друзей у пользователей {} и {}", userId, otherId);
         User user = userStorage.getUserById(userId).orElseThrow(() -> new NotFoundException("Пользователь не найден"));
-        User friend = userStorage.getUserById(otherId).orElseThrow(() -> new NotFoundException("Друг не найден"));
+        User otherUser = userStorage.getUserById(otherId).orElseThrow(() -> new NotFoundException("Друг не найден"));
+
+        log.debug("Друзья user {}: {}", userId, user.getFriends());
+        log.debug("Друзья user {}: {}", otherId, otherUser.getFriends());
+
         Set<Integer> commonIds = new HashSet<>(user.getFriends());
-        return commonIds.stream()
+        commonIds.retainAll(otherUser.getFriends());
+
+        log.debug("Общие id: {}", commonIds);
+
+        List<User> commonFriends = commonIds.stream()
                 .map(id -> userStorage.getUserById(id).orElse(null))
                 .filter(Objects::nonNull)
                 .collect(Collectors.toList());
+
+        log.debug("Общие друзья (объекты): {}", commonFriends);
+
+        return commonFriends;
     }
 
     public List<User> getUserFriends(int userId) {

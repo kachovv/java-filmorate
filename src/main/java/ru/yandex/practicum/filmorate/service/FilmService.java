@@ -33,6 +33,8 @@ public class FilmService {
 
     public void removeLike(int filmId, int userId) {
         log.debug("Попытка удалить лайк: фильм={}, пользователь={}", filmId, userId);
+        userStorage.getUserById(userId)
+                .orElseThrow(() -> new NotFoundException("Пользователь с id " + userId + " не найден"));
         Film film = filmStorage.getFilmById(filmId).orElseThrow(() -> new NotFoundException("Фильм не найден"));
         film.getLikes().remove(userId);
         filmStorage.updateFilm(film);
