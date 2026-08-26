@@ -1,31 +1,27 @@
 package ru.yandex.practicum.filmorate;
 
-import org.junit.jupiter.api.BeforeEach;
+import jakarta.transaction.Transactional;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
+import org.springframework.boot.test.context.SpringBootTest;
 import ru.yandex.practicum.filmorate.controller.FilmController;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.Film;
-import ru.yandex.practicum.filmorate.service.FilmService;
-import ru.yandex.practicum.filmorate.service.UserService;
-import ru.yandex.practicum.filmorate.storage.InMemoryFilmStorage;
-import ru.yandex.practicum.filmorate.storage.InMemoryUserStorage;
 
 import java.time.LocalDate;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-public class FilmControllerTest {
-    private FilmController filmController;
 
-    @BeforeEach
-    void setUp() {
-        InMemoryFilmStorage filmStorage = new InMemoryFilmStorage();
-        InMemoryUserStorage userStorage = new InMemoryUserStorage();
-        UserService userService = new UserService(userStorage);
-        FilmService filmService = new FilmService(userStorage, filmStorage);
-        filmController = new FilmController(filmService);
-    }
+@SpringBootTest
+@AutoConfigureTestDatabase
+@Transactional
+public class FilmControllerTest {
+
+    @Autowired
+    private FilmController filmController;
 
     @Test
     void shouldCreateValidFilm() {

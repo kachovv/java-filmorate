@@ -1,22 +1,12 @@
 package ru.yandex.practicum.filmorate.model;
 
-import com.fasterxml.jackson.annotation.JsonValue;
+import lombok.Data;
 
-public enum MpaRating {
-    G("G"),
-    PG("PG"),
-    PG_13("PG-13"),
-    R("R"),
-    NC_17("NC-17");
+@Data
+public class MpaRating {
+    private Integer id;
+    private String name;
 
-    private final String displayName;
-
-    MpaRating(String displayName) {
-        this.displayName = displayName;
-    }
-
-    @JsonValue
-    public String getDisplayName() {
-        return displayName;
+    public MpaRating() {
     }
 }
