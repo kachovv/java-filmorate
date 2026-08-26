@@ -1,0 +1,175 @@
+package ru.yandex.practicum.filmorate.service;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import ru.yandex.practicum.filmorate.exception.NotFoundException;
+import ru.yandex.practicum.filmorate.exception.ValidationException;
+import ru.yandex.practicum.filmorate.model.Friendship;
+import ru.yandex.practicum.filmorate.model.FriendshipStatus;
+import ru.yandex.practicum.filmorate.model.User;
+import ru.yandex.practicum.filmorate.storage.FriendshipStorage;
+import ru.yandex.practicum.filmorate.storage.UserStorage;
+
+import java.time.LocalDate;
+import java.util.*;
+import java.util.stream.Collectors;
+
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class UserService {
+    private final UserStorage userStorage;
+    private final FriendshipStorage friendshipStorage;
+
+    public void sendFriendRequest(int userId, int friendId) {
+        if (userId == friendId) {
+            throw new ValidationException("Нельзя добавить самого себя");
+        }
+        userStorage.getUserById(userId).orElseThrow(() -> new NotFoundException("Пользователь не найден"));
+        userStorage.getUserById(friendId).orElseThrow(() -> new NotFoundException("Друг не найден"));
+        Optional<Friendship> existing = friendshipStorage.getByUserPair(userId, friendId);
+        if (existing.isPresent()) {
+            throw new ValidationException("Запрос уже отправлен или вы уже друзья");
+        }
+        friendshipStorage.createFriendship(userId, friendId);
+    }
+
+    public void acceptFriendRequest(int userId, int friendId) {
+        Friendship friendship = friendshipStorage.getByUserPair(friendId, userId)
+                .orElseThrow(() -> new NotFoundException("Запрос не найден"));
+        if (friendship.getStatus() != FriendshipStatus.PENDING) {
+            throw new ValidationException("Запрос уже обработан");
+        }
+        friendshipStorage.updateStatus(friendship.getId(), FriendshipStatus.CONFIRMED);
+    }
+
+    public void rejectFriendRequest(int userId, int friendId) {
+        Friendship friendship = friendshipStorage.getByUserPair(friendId, userId)
+                .orElseThrow(() -> new NotFoundException("Запрос не найден"));
+        if (friendship.getStatus() != FriendshipStatus.PENDING) {
+            throw new ValidationException("Запрос уже обработан");
+        }
+        friendshipStorage.deleteFriendship(friendship.getId());
+    }
+
+    public List<User> getConfirmedFriends(int userId) {
+        userStorage.getUserById(userId)
+                .orElseThrow(() -> new NotFoundException("Пользователь с id " + userId + " не найден"));
+
+        List<Friendship> confirmed = friendshipStorage.getConfirmedFriendships(userId);
+        return confirmed.stream()
+                .map(f -> {
+                    if (f.getUserId().equals(userId)) {
+                        return userStorage.getUserById(f.getFriendId()).orElse(null);
+                    } else {
+                        return userStorage.getUserById(f.getUserId()).orElse(null);
+                    }
+                })
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+    }
+
+    public List<User> getSentRequests(int userId) {
+        userStorage.getUserById(userId)
+                .orElseThrow(() -> new NotFoundException("Пользователь с id " + userId + " не найден"));
+
+        List<Friendship> sent = friendshipStorage.getSentRequests(userId);
+        return sent.stream()
+                .filter(f -> f.getStatus() == FriendshipStatus.PENDING)
+                .map(f -> userStorage.getUserById(f.getFriendId()).orElse(null))
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+    }
+
+    public List<User> getReceivedRequests(int userId) {
+        userStorage.getUserById(userId)
+                .orElseThrow(() -> new NotFoundException("Пользователь с id " + userId + " не найден"));
+
+        List<Friendship> received = friendshipStorage.getReceivedRequests(userId);
+        return received.stream()
+                .filter(f -> f.getStatus() == FriendshipStatus.PENDING)
+                .map(f -> userStorage.getUserById(f.getUserId()).orElse(null))
+                .collect(Collectors.toList());
+    }
+
+    public List<User> getCommonFriends(int userId, int otherId) {
+        Set<Integer> friendsOfUser = getConfirmedFriends(userId).stream()
+                .map(User::getId)
+                .collect(Collectors.toSet());
+
+        Set<Integer> friendsOfOther = getConfirmedFriends(otherId).stream()
+                .map(User::getId)
+                .collect(Collectors.toSet());
+
+        Set<Integer> commonIds = new HashSet<>(friendsOfUser);
+        commonIds.retainAll(friendsOfOther);
+
+        return commonIds.stream()
+                .map(id -> userStorage.getUserById(id).orElse(null))
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+    }
+
+    public List<User> getAllUsers() {
+        return userStorage.getAllUsers().stream().collect(Collectors.toList());
+    }
+
+    public User addUser(User user) {
+        validateUser(user);
+        checkEmailDuplicate(user.getEmail(), null);
+        if (user.getName() == null || user.getName().isBlank()) {
+            user.setName(user.getLogin());
+        }
+        User created = userStorage.addUser(user);
+        log.info("Создан пользователь с id = {}", created.getId());
+        return created;
+    }
+
+    public User updateUser(User user) {
+        if (user.getId() == null) {
+            throw new ValidationException("Id должен быть указан");
+        }
+        userStorage.getUserById(user.getId())
+                .orElseThrow(() -> new NotFoundException("Пользователь с id = " + user.getId() + " не найден"));
+        validateUser(user);
+        checkEmailDuplicate(user.getEmail(), user.getId());
+
+        if (user.getName() == null || user.getName().isBlank()) {
+            user.setName(user.getLogin());
+        }
+        User updated = userStorage.updateUser(user);
+        log.info("Обновлён пользователь с id = {}", updated.getId());
+        return updated;
+    }
+
+    public User getUserById(int id) {
+        return userStorage.getUserById(id)
+                .orElseThrow(() -> new NotFoundException("Пользователь с id = " + id + " не найден"));
+    }
+
+    private void validateUser(User user) {
+        if (user.getLogin() == null || user.getLogin().isBlank()) {
+            log.warn("Ошибка валидации: логин = {} не валидный", user.getLogin());
+            throw new ValidationException(("Логин должен быть указан и не должен содержать пробелы"));
+        }
+        if (user.getEmail() == null || user.getEmail().isBlank() || !user.getEmail().contains("@")) {
+            log.warn("Ошибка валидации: email = {} не валидный", user.getEmail());
+            throw new ValidationException("Email должен быть указан и содержать @");
+        }
+        if (user.getBirthday() == null || user.getBirthday().isAfter(LocalDate.now())) {
+            log.warn("Ошибка валидации: дата рождения {} в будущем", user.getBirthday());
+            throw new ValidationException("Дата рождения не может быть в будущем");
+        }
+    }
+
+    private void checkEmailDuplicate(String email, Integer excludeUserId) {
+        boolean duplicate = userStorage.getAllUsers().stream()
+                .filter(u -> !Objects.equals(u.getId(), excludeUserId))
+                .anyMatch(u -> u.getEmail().equalsIgnoreCase(email));
+
+        if (duplicate) {
+            throw new ValidationException("Этот email уже используется");
+        }
+    }
+}

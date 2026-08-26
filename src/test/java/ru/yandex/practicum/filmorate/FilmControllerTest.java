@@ -6,6 +6,10 @@ import ru.yandex.practicum.filmorate.controller.FilmController;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.Film;
+import ru.yandex.practicum.filmorate.service.FilmService;
+import ru.yandex.practicum.filmorate.service.UserService;
+import ru.yandex.practicum.filmorate.storage.InMemoryFilmStorage;
+import ru.yandex.practicum.filmorate.storage.InMemoryUserStorage;
 
 import java.time.LocalDate;
 
@@ -16,7 +20,11 @@ public class FilmControllerTest {
 
     @BeforeEach
     void setUp() {
-        filmController = new FilmController();
+        InMemoryFilmStorage filmStorage = new InMemoryFilmStorage();
+        InMemoryUserStorage userStorage = new InMemoryUserStorage();
+        UserService userService = new UserService(userStorage);
+        FilmService filmService = new FilmService(userStorage, filmStorage);
+        filmController = new FilmController(filmService);
     }
 
     @Test
@@ -77,7 +85,7 @@ public class FilmControllerTest {
         film.setDuration(100);
 
         ValidationException ex = assertThrows(ValidationException.class,
-        () -> filmController.create(film));
+                () -> filmController.create(film));
         assertEquals("Дата релиза не может быть раньше 28 декабря 1895 года", ex.getMessage());
     }
 
