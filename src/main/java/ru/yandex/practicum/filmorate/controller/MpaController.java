@@ -8,8 +8,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.model.MpaRating;
-import ru.yandex.practicum.filmorate.storage.MpaDbStorage;
 
+import java.util.Arrays;
 import java.util.List;
 
 @Slf4j
@@ -17,18 +17,20 @@ import java.util.List;
 @RequestMapping("/mpa")
 @RequiredArgsConstructor
 public class MpaController {
-    private final MpaDbStorage mpaStorage;
 
     @GetMapping
     public List<MpaRating> getAllMpa() {
         log.info("Запрос на получение всех рейтингов MPA");
-        return mpaStorage.getAllMpa();
+        return Arrays.asList(MpaRating.values());
     }
 
     @GetMapping("/{id}")
     public MpaRating getMpaById(@PathVariable int id) {
         log.info("Запрос на получение рейтинга MPA с id = {}", id);
-        return mpaStorage.getMpaById(id)
-                .orElseThrow(() -> new NotFoundException("Рейтинг с id " + id + " не найден"));
+        MpaRating[] ratings = MpaRating.values();
+        if (id < 1 || id > ratings.length) {
+            throw new NotFoundException("Рейтинг с id " + id + " не найден");
+        }
+        return ratings[id - 1];
     }
 }

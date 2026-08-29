@@ -8,7 +8,6 @@ import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.Film;
 import ru.yandex.practicum.filmorate.model.Genre;
-import ru.yandex.practicum.filmorate.model.MpaRating;
 import ru.yandex.practicum.filmorate.storage.*;
 
 import java.time.LocalDate;
@@ -36,13 +35,10 @@ public class FilmService {
     @Qualifier("genreDbStorage")
     private final GenreStorage genreStorage;
 
-    @Qualifier("mpaDbStorage")
-    private final MpaDbStorage mpaStorage;
-
     public void addLike(int filmId, int userId) {
         log.debug("Попытка поставить лайк: фильм={}, пользователь={}", filmId, userId);
         userStorage.getUserById(userId).orElseThrow(() -> new NotFoundException("Пользователь не найден"));
-        Film film = filmStorage.getFilmById(filmId).orElseThrow(() -> new NotFoundException("Фильм не найден"));
+        filmStorage.getFilmById(filmId).orElseThrow(() -> new NotFoundException("Фильм не найден"));
         likeStorage.addLike(filmId, userId);
         log.info("Пользователь {} поставил лайк фильму {}", userId, filmId);
     }
@@ -51,7 +47,7 @@ public class FilmService {
         log.debug("Попытка удалить лайк: фильм={}, пользователь={}", filmId, userId);
         userStorage.getUserById(userId)
                 .orElseThrow(() -> new NotFoundException("Пользователь с id " + userId + " не найден"));
-        Film film = filmStorage.getFilmById(filmId).orElseThrow(() -> new NotFoundException("Фильм не найден"));
+        filmStorage.getFilmById(filmId).orElseThrow(() -> new NotFoundException("Фильм не найден"));
         likeStorage.removeLike(filmId, userId);
         log.info("Пользователь {} убрал лайк с фильма {}", userId, filmId);
     }
@@ -89,26 +85,15 @@ public class FilmService {
 
     public Film addFilm(Film film) {
         validateFilm(film);
-
-        if (film.getMpaRating() != null && film.getMpaRating().getId() != null) {
-            MpaRating mpa = mpaStorage.getMpaById(film.getMpaRating().getId())
-                    .orElseThrow(() -> new NotFoundException("Рейтинг с id " + film.getMpaRating().getId() + " не найден"));
-            film.setMpaRating(mpa);
-        }
-
         Film created = filmStorage.addFilm(film);
-
         if (film.getGenres() != null && !film.getGenres().isEmpty()) {
             for (Genre genre : film.getGenres()) {
-                if (genre.getId() == null) {
-                    throw new ValidationException("Не указан id жанра");
-                }
-                Genre existingGenre = genreStorage.getGenreById(genre.getId())
-                        .orElseThrow(() -> new NotFoundException("Жанр с id " + genre.getId() + " не найден"));
+                Genre existingGenre = genreStorage.getGenreByName(genre.getName())
+                        .orElseThrow(() -> new ValidationException("Жанр " + genre.getName() + " не найден"));
                 genreStorage.addGenreToFilm(created.getId(), existingGenre.getId());
             }
         }
-        log.info("Фильм успешно создан с id = {}", created.getId());
+        created.setGenres(new HashSet<>(genreStorage.getGenresByFilmId(created.getId())));
         return created;
     }
 
@@ -126,7 +111,8 @@ public class FilmService {
                 genreStorage.addGenreToFilm(film.getId(), existingGenre.getId());
             }
         }
-        log.info("Фильм с id = {} успешно обновлён", updated.getId()); // РАЗОБРАТЬСЯ
+        updated.setGenres(new HashSet<>(genreStorage.getGenresByFilmId(film.getId())));
+        log.info("Фильм с id = {} успешно обновлён", updated.getId());
         return updated;
     }
 
@@ -139,7 +125,7 @@ public class FilmService {
             log.warn("Ошибка валидации: описание превышет 200 символов (длина = {})", film.getDescription().length());
             throw new ValidationException("Описание не должно превышать 200 символов");
         }
-        if (film.getReleaseDate() == null || film.getReleaseDate().isBefore(MIN_RELEASE_DATE)) {
+        if (film.getReleaseDate() == null || film.getReleaseDate().isBefore(FilmService.MIN_RELEASE_DATE)) {
             log.warn("Ошибка валидации: дата релиза {} раньше 28.12.1895", film.getReleaseDate());
             throw new ValidationException("Дата релиза не может быть раньше 28 декабря 1895 года");
         }

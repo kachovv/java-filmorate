@@ -22,14 +22,7 @@ public class FilmDbStorage implements FilmStorage {
         film.setDescription(rs.getString("description"));
         film.setReleaseDate(rs.getDate("release_date").toLocalDate());
         film.setDuration(rs.getInt("duration"));
-
-        // Маппим рейтинг как объект
-        if (rs.getObject("mpa_rating_id") != null) {
-            MpaRating mpa = new MpaRating();
-            mpa.setId(rs.getInt("mpa_rating_id"));
-            mpa.setName(rs.getString("mpa_name"));
-            film.setMpaRating(mpa);
-        }
+        film.setMpaRating(MpaRating.valueOf(rs.getString("mpa_rating")));
         return film;
     };
 
@@ -39,9 +32,14 @@ public class FilmDbStorage implements FilmStorage {
 
     @Override
     public Film addFilm(Film film) {
-        String sql = "INSERT INTO films (name, description, release_date, duration, mpa_rating_id) VALUES (?, ?, ?, ?, ?)";
-        Integer mpaId = film.getMpaRating() != null ? film.getMpaRating().getId() : null;
-        jdbcTemplate.update(sql, film.getName(), film.getDescription(), film.getReleaseDate(), film.getDuration(), mpaId);
+        String sql = "INSERT INTO films (name, description, release_date, duration, mpa_rating) VALUES (?, ?, ?, ?, ?)";
+        jdbcTemplate.update(sql,
+                film.getName(),
+                film.getDescription(),
+                film.getReleaseDate(),
+                film.getDuration(),
+                film.getMpaRating().name()
+        );
         Integer id = jdbcTemplate.queryForObject("SELECT last_insert_id()", Integer.class);
         film.setId(id);
         return film;
@@ -49,14 +47,13 @@ public class FilmDbStorage implements FilmStorage {
 
     @Override
     public Film updateFilm(Film film) {
-        String sql = "UPDATE films SET name = ?, description = ?, release_date = ?, duration = ?, mpa_rating_id = ? WHERE id = ?";
-        Integer mpaId = film.getMpaRating() != null ? film.getMpaRating().getId() : null;
+        String sql = "UPDATE films SET name = ?, description = ?, release_date = ?, duration = ?, mpa_rating = ? WHERE id = ?";
         int rows = jdbcTemplate.update(sql,
                 film.getName(),
                 film.getDescription(),
                 film.getReleaseDate(),
                 film.getDuration(),
-                mpaId,
+                film.getMpaRating().name(),
                 film.getId()
         );
         if (rows == 0) {
@@ -67,13 +64,13 @@ public class FilmDbStorage implements FilmStorage {
 
     @Override
     public Collection<Film> getAllFilms() {
-        String sql = "SELECT f.*, m.name AS mpa_name FROM films f LEFT JOIN mpa_ratings m ON f.mpa_rating_id = m.id";
+        String sql = "SELECT * FROM films";
         return jdbcTemplate.query(sql, FILM_ROW_MAPPER);
     }
 
     @Override
     public Optional<Film> getFilmById(int id) {
-        String sql = "SELECT f.*, m.name AS mpa_name FROM films f LEFT JOIN mpa_ratings m ON f.mpa_rating_id = m.id WHERE f.id = ?";
+        String sql = "SELECT * FROM films WHERE id = ?";
         List<Film> films = jdbcTemplate.query(sql, FILM_ROW_MAPPER, id);
         return films.stream().findFirst();
     }

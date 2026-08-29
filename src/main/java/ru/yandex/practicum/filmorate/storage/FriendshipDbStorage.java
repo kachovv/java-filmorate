@@ -5,6 +5,7 @@ import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.Friendship;
+import ru.yandex.practicum.filmorate.model.FriendshipStatus;
 
 import java.util.List;
 import java.util.Optional;
@@ -19,9 +20,9 @@ public class FriendshipDbStorage implements FriendshipStorage {
         friendship.setId(rs.getInt("id"));
         friendship.setUserId(rs.getInt("user_id"));
         friendship.setFriendId(rs.getInt("friend_id"));
+        friendship.setStatus(FriendshipStatus.valueOf(rs.getString("status")));
         return friendship;
     };
-
     public FriendshipDbStorage(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
     }
@@ -32,12 +33,13 @@ public class FriendshipDbStorage implements FriendshipStorage {
             throw new ValidationException("Пользователь уже добавлен в друзья");
         }
         String sql = "INSERT INTO friendships (user_id, friend_id, status) VALUES (?, ?, ?)";
-        jdbcTemplate.update(sql, userId, friendId, "CONFIRMED");
+        jdbcTemplate.update(sql, userId, friendId, FriendshipStatus.CONFIRMED.name());
         Integer id = jdbcTemplate.queryForObject("SELECT last_insert_id()", Integer.class);
         Friendship friendship = new Friendship();
         friendship.setId(id);
         friendship.setUserId(userId);
         friendship.setFriendId(friendId);
+        friendship.setStatus(FriendshipStatus.CONFIRMED);
         return friendship;
     }
 
@@ -65,5 +67,34 @@ public class FriendshipDbStorage implements FriendshipStorage {
     public void deleteFriendship(Integer id) {
         String sql = "DELETE FROM friendships WHERE id = ?";
         jdbcTemplate.update(sql, id);
+    }
+
+    @Override
+    public void updateStatus(Integer friendshipId, FriendshipStatus status) {
+        String sql = "UPDATE friendships SET status = ? WHERE id = ?";
+        jdbcTemplate.update(sql, status.name(), friendshipId);
+    }
+
+    @Override
+    public Optional<Friendship> getByUserPair(Integer userId, Integer friendId) {
+        return getFriendship(userId, friendId);
+    }
+
+    @Override
+    public List<Friendship> getSentRequests(Integer userId) {
+        String sql = "SELECT * FROM friendships WHERE user_id = ? AND status = ?";
+        return jdbcTemplate.query(sql, FRIENDSHIP_ROW_MAPPER, userId, FriendshipStatus.PENDING.name());
+    }
+
+    @Override
+    public List<Friendship> getReceivedRequests(Integer userId) {
+        String sql = "SELECT * FROM friendships WHERE friend_id = ? AND status = ?";
+        return jdbcTemplate.query(sql, FRIENDSHIP_ROW_MAPPER, userId, FriendshipStatus.PENDING.name());
+    }
+
+    @Override
+    public List<Friendship> getConfirmedFriendships(Integer userId) {
+        String sql = "SELECT * FROM friendships WHERE (user_id = ? OR friend_id = ?) AND status = ?";
+        return jdbcTemplate.query(sql, FRIENDSHIP_ROW_MAPPER, userId, userId, FriendshipStatus.CONFIRMED.name());
     }
 }
