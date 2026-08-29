@@ -17,7 +17,7 @@ public interface FriendshipStorage {
 
     Optional<Friendship> getFriendship(int userId, int friendId);
 
-    void updateStatus(Integer friendshipId, FriendshipStatus status);
+    Friendship updateStatus(Integer friendshipId, FriendshipStatus status);
 
     Optional<Friendship> getByUserPair(Integer userId, Integer friendId);
 

@@ -3,6 +3,7 @@ package ru.yandex.practicum.filmorate.storage;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
+import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.Friendship;
 import ru.yandex.practicum.filmorate.model.FriendshipStatus;
@@ -23,6 +24,7 @@ public class FriendshipDbStorage implements FriendshipStorage {
         friendship.setStatus(FriendshipStatus.valueOf(rs.getString("status")));
         return friendship;
     };
+
     public FriendshipDbStorage(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
     }
@@ -70,14 +72,14 @@ public class FriendshipDbStorage implements FriendshipStorage {
     }
 
     @Override
-    public void updateStatus(Integer friendshipId, FriendshipStatus status) {
+    public Friendship updateStatus(Integer friendshipId, FriendshipStatus status) {
         String sql = "UPDATE friendships SET status = ? WHERE id = ?";
-        jdbcTemplate.update(sql, status.name(), friendshipId);
-    }
-
-    @Override
-    public Optional<Friendship> getByUserPair(Integer userId, Integer friendId) {
-        return getFriendship(userId, friendId);
+        int rows = jdbcTemplate.update(sql, status.name(), friendshipId);
+        if (rows == 0) {
+            throw new NotFoundException("Дружба с id " + friendshipId + " не найдена");
+        }
+        return getById(friendshipId)
+                .orElseThrow(() -> new NotFoundException("Дружба с id " + friendshipId + " не найдена"));
     }
 
     @Override
@@ -96,5 +98,10 @@ public class FriendshipDbStorage implements FriendshipStorage {
     public List<Friendship> getConfirmedFriendships(Integer userId) {
         String sql = "SELECT * FROM friendships WHERE (user_id = ? OR friend_id = ?) AND status = ?";
         return jdbcTemplate.query(sql, FRIENDSHIP_ROW_MAPPER, userId, userId, FriendshipStatus.CONFIRMED.name());
+    }
+
+    @Override
+    public Optional<Friendship> getByUserPair(Integer userId, Integer friendId) {
+        return getFriendship(userId, friendId);
     }
 }
