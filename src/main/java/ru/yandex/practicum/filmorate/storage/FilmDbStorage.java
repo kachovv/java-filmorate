@@ -2,11 +2,16 @@ package ru.yandex.practicum.filmorate.storage;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
+import org.springframework.jdbc.support.GeneratedKeyHolder;
+import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Repository;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.model.Film;
 import ru.yandex.practicum.filmorate.model.MpaRating;
 
+import java.sql.Date;
+import java.sql.PreparedStatement;
+import java.sql.Statement;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -22,7 +27,12 @@ public class FilmDbStorage implements FilmStorage {
         film.setDescription(rs.getString("description"));
         film.setReleaseDate(rs.getDate("release_date").toLocalDate());
         film.setDuration(rs.getInt("duration"));
-        film.setMpaRating(MpaRating.valueOf(rs.getString("mpa_rating")));
+        if (rs.getObject("mpa_rating_id") != null) {
+            MpaRating mpa = new MpaRating();
+            mpa.setId(rs.getInt("mpa_rating_id"));
+            mpa.setName(rs.getString("mpa_name"));
+            film.setMpaRating(mpa);
+        }
         return film;
     };
 
@@ -32,45 +42,59 @@ public class FilmDbStorage implements FilmStorage {
 
     @Override
     public Film addFilm(Film film) {
-        String sql = "INSERT INTO films (name, description, release_date, duration, mpa_rating) VALUES (?, ?, ?, ?, ?)";
-        jdbcTemplate.update(sql,
-                film.getName(),
-                film.getDescription(),
-                film.getReleaseDate(),
-                film.getDuration(),
-                film.getMpaRating().name()
-        );
-        Integer id = jdbcTemplate.queryForObject("SELECT last_insert_id()", Integer.class);
-        film.setId(id);
+        Integer mpaId = resolveMpaRatingId(film.getMpaRating());
+        KeyHolder keyHolder = new GeneratedKeyHolder();
+        String sql = "INSERT INTO films (name, description, release_date, duration, mpa_rating_id) VALUES (?, ?, ?, ?, ?)";
+        jdbcTemplate.update(connection -> {
+            PreparedStatement ps = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
+            ps.setString(1, film.getName());
+            ps.setString(2, film.getDescription());
+            ps.setDate(3, Date.valueOf(film.getReleaseDate()));
+            ps.setInt(4, film.getDuration());
+            if (mpaId != null) {
+                ps.setInt(5, mpaId);
+            } else {
+                ps.setNull(5, java.sql.Types.INTEGER);
+            }
+            return ps;
+        }, keyHolder);
+        film.setId(keyHolder.getKey().intValue());
+        if (mpaId != null) {
+            film.setMpaRating(new MpaRating(mpaId, film.getMpaRating().getName()));
+        }
         return film;
     }
 
     @Override
     public Film updateFilm(Film film) {
-        String sql = "UPDATE films SET name = ?, description = ?, release_date = ?, duration = ?, mpa_rating = ? WHERE id = ?";
+        Integer mpaId = resolveMpaRatingId(film.getMpaRating());
+        String sql = "UPDATE films SET name = ?, description = ?, release_date = ?, duration = ?, mpa_rating_id = ? WHERE id = ?";
         int rows = jdbcTemplate.update(sql,
                 film.getName(),
                 film.getDescription(),
                 film.getReleaseDate(),
                 film.getDuration(),
-                film.getMpaRating().name(),
+                mpaId,
                 film.getId()
         );
         if (rows == 0) {
-            throw new NotFoundException("Фильм с id " + film.getId() + " не найден");
+            throw new NotFoundException("Фильм с id = " + film.getId() + " не найден");
+        }
+        if (mpaId != null) {
+            film.setMpaRating(new MpaRating(mpaId, film.getMpaRating().getName()));
         }
         return film;
     }
 
     @Override
     public Collection<Film> getAllFilms() {
-        String sql = "SELECT * FROM films";
+        String sql = "SELECT f.*, m.name AS mpa_name FROM films f LEFT JOIN mpa_ratings m ON f.mpa_rating_id = m.id";
         return jdbcTemplate.query(sql, FILM_ROW_MAPPER);
     }
 
     @Override
     public Optional<Film> getFilmById(int id) {
-        String sql = "SELECT * FROM films WHERE id = ?";
+        String sql = "SELECT f.*, m.name AS mpa_name FROM films f LEFT JOIN mpa_ratings m ON f.mpa_rating_id = m.id WHERE f.id = ?";
         List<Film> films = jdbcTemplate.query(sql, FILM_ROW_MAPPER, id);
         return films.stream().findFirst();
     }
@@ -82,5 +106,11 @@ public class FilmDbStorage implements FilmStorage {
         if (rows == 0) {
             throw new NotFoundException("Фильм с id " + id + " не найден");
         }
+    }
+
+    private Integer resolveMpaRatingId(MpaRating mpaRating) {
+        if (mpaRating == null) return null;
+        jdbcTemplate.update("MERGE INTO mpa_ratings (name) VALUES (?)", mpaRating.getName());
+        return jdbcTemplate.queryForObject("SELECT id FROM mpa_ratings WHERE name = ?", Integer.class, mpaRating.getName());
     }
 }

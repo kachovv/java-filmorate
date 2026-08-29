@@ -18,19 +18,26 @@ import java.util.List;
 @RequiredArgsConstructor
 public class MpaController {
 
+    private static final List<MpaRating> RATINGS = Arrays.asList(
+            MpaRating.G,
+            MpaRating.PG,
+            MpaRating.PG_13,
+            MpaRating.R,
+            MpaRating.NC_17
+    );
+
     @GetMapping
     public List<MpaRating> getAllMpa() {
         log.info("Запрос на получение всех рейтингов MPA");
-        return Arrays.asList(MpaRating.values());
+        return RATINGS;
     }
 
     @GetMapping("/{id}")
     public MpaRating getMpaById(@PathVariable int id) {
         log.info("Запрос на получение рейтинга MPA с id = {}", id);
-        MpaRating[] ratings = MpaRating.values();
-        if (id < 1 || id > ratings.length) {
-            throw new NotFoundException("Рейтинг с id " + id + " не найден");
-        }
-        return ratings[id - 1];
+        return RATINGS.stream()
+                .filter(r -> r.getId() == id)
+                .findFirst()
+                .orElseThrow(() -> new NotFoundException("Рейтинг с id " + id + " не найден"));
     }
 }

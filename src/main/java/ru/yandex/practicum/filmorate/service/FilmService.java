@@ -122,10 +122,10 @@ public class FilmService {
             throw new ValidationException("Название фильма не может быть пустым");
         }
         if (film.getDescription() != null && film.getDescription().length() > MAX_DESCRIPTION_LENGTH) {
-            log.warn("Ошибка валидации: описание превышет 200 символов (длина = {})", film.getDescription().length());
+            log.warn("Ошибка валидации: описание превышает 200 символов (длина = {})", film.getDescription().length());
             throw new ValidationException("Описание не должно превышать 200 символов");
         }
-        if (film.getReleaseDate() == null || film.getReleaseDate().isBefore(FilmService.MIN_RELEASE_DATE)) {
+        if (film.getReleaseDate() == null || film.getReleaseDate().isBefore(MIN_RELEASE_DATE)) {
             log.warn("Ошибка валидации: дата релиза {} раньше 28.12.1895", film.getReleaseDate());
             throw new ValidationException("Дата релиза не может быть раньше 28 декабря 1895 года");
         }

@@ -2,10 +2,15 @@ package ru.yandex.practicum.filmorate.storage;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
+import org.springframework.jdbc.support.GeneratedKeyHolder;
+import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Repository;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.model.User;
 
+import java.sql.Date;
+import java.sql.PreparedStatement;
+import java.sql.Statement;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -29,16 +34,17 @@ public class UserDbStorage implements UserStorage {
 
     @Override
     public User addUser(User user) {
+        KeyHolder keyHolder = new GeneratedKeyHolder();
         String sql = "INSERT INTO users (email, login, name, birthday) VALUES (?, ?, ?, ?)";
-
-        jdbcTemplate.update(sql,
-                user.getEmail(),
-                user.getLogin(),
-                user.getName(),
-                user.getBirthday()
-        );
-        Integer id = jdbcTemplate.queryForObject("SELECT last_insert_id()", Integer.class);
-        user.setId(id);
+        jdbcTemplate.update(connection -> {
+            PreparedStatement ps = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
+            ps.setString(1, user.getEmail());
+            ps.setString(2, user.getLogin());
+            ps.setString(3, user.getName());
+            ps.setDate(4, Date.valueOf(user.getBirthday()));
+            return ps;
+        }, keyHolder);
+        user.setId(((Number) keyHolder.getKeys().get("ID")).intValue());
         return user;
     }
 
@@ -46,7 +52,7 @@ public class UserDbStorage implements UserStorage {
     public Optional<User> getUserById(int id) {
         String sql = "SELECT * FROM users WHERE id = ?";
         List<User> users = jdbcTemplate.query(sql, USER_ROW_MAPPER, id);
-        return users.isEmpty() ? Optional.empty() : Optional.of(users.get(0)); // ПОПРОСИТЬ ОБЪЯСНИТЬ ВОТ ЭТУ СТРОКУ ОТЛДЕЛЬНО!!!
+        return users.isEmpty() ? Optional.empty() : Optional.of(users.get(0));
     }
 
     @Override

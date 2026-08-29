@@ -24,6 +24,25 @@ CREATE TABLE IF NOT EXISTS users
     birthday DATE
     );
 
+CREATE TABLE IF NOT EXISTS mpa_ratings
+(
+    id
+    INTEGER
+    GENERATED
+    BY
+    DEFAULT AS
+    IDENTITY,
+    name
+    VARCHAR
+(
+    50
+) NOT NULL PRIMARY KEY,
+    CONSTRAINT mpa_ratings_id_unique UNIQUE
+(
+    id
+)
+    );
+
 CREATE TABLE IF NOT EXISTS films
 (
     id
@@ -45,10 +64,10 @@ CREATE TABLE IF NOT EXISTS films
 ),
     release_date DATE,
     duration INTEGER,
-    mpa_rating VARCHAR
+    mpa_rating_id INTEGER REFERENCES mpa_ratings
 (
-    20
-) NOT NULL
+    id
+)
     );
 
 CREATE TABLE IF NOT EXISTS genres
@@ -58,14 +77,16 @@ CREATE TABLE IF NOT EXISTS genres
     GENERATED
     BY
     DEFAULT AS
-    IDENTITY
-    PRIMARY
-    KEY,
+    IDENTITY,
     name
     VARCHAR
 (
     50
-) NOT NULL
+) NOT NULL PRIMARY KEY,
+    CONSTRAINT genres_id_unique UNIQUE
+(
+    id
+)
     );
 
 CREATE TABLE IF NOT EXISTS film_genres
@@ -77,9 +98,9 @@ CREATE TABLE IF NOT EXISTS film_genres
 (
     id
 ) ON DELETE CASCADE,
-    genre_id INTEGER REFERENCES GENRES
+    genre_id INTEGER REFERENCES genres
 (
-    ID
+    id
 )
   ON DELETE CASCADE,
     PRIMARY KEY
