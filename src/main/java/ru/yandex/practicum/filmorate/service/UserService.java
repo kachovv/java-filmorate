@@ -64,7 +64,6 @@ public class UserService {
     }
 
     public void addFriend(int userId, int friendId) {
-        log.info("addFriend: userId={}, friendId={}", userId, friendId);
         if (userId == friendId) {
             throw new ValidationException("Нельзя добавить самого себя");
         }
@@ -73,12 +72,14 @@ public class UserService {
         userStorage.getUserById(friendId)
                 .orElseThrow(() -> new NotFoundException("Пользователь с id " + friendId + " не найден"));
 
-        if (friendshipStorage.getFriendship(userId, friendId).isPresent()) {
-            throw new ValidationException("Пользователь уже добавлен в друзья");
+        // Проверяем, есть ли уже прямая запись
+        Optional<Friendship> existing = friendshipStorage.getByUserPair(userId, friendId);
+        if (existing.isPresent()) {
+            log.info("Дружба между {} и {} уже существует", userId, friendId);
+        } else {
+            friendshipStorage.createFriendship(userId, friendId);
+            log.info("Пользователь {} добавил в друзья {}", userId, friendId);
         }
-
-        Friendship created = friendshipStorage.createFriendship(userId, friendId);
-        log.info("Создана запись о дружбе с id={}", created.getId());
     }
 
     public void removeFriend(int userId, int friendId) {
@@ -87,15 +88,14 @@ public class UserService {
         userStorage.getUserById(friendId)
                 .orElseThrow(() -> new NotFoundException("Пользователь с id " + friendId + " не найден"));
 
-        friendshipStorage.getFriendship(userId, friendId)
-                .ifPresent(friendship -> friendshipStorage.deleteFriendship(friendship.getId()));
-        log.info("Пользователь {} удалил из друзей {} (или дружбы не было)", userId, friendId);
+        friendshipStorage.deleteByUserPair(userId, friendId);
     }
 
     public List<User> getFriends(int userId) {
         userStorage.getUserById(userId)
                 .orElseThrow(() -> new NotFoundException("Пользователь с id " + userId + " не найден"));
-        List<Friendship> friendships = friendshipStorage.getFriendshipsByUserId(userId);
+
+        List<Friendship> friendships = friendshipStorage.getConfirmedFriendships(userId);
         return friendships.stream()
                 .map(f -> userStorage.getUserById(f.getFriendId()).orElse(null))
                 .filter(Objects::nonNull)
@@ -107,7 +107,6 @@ public class UserService {
         Set<Integer> friendsOfOther = getFriends(otherId).stream().map(User::getId).collect(Collectors.toSet());
         Set<Integer> commonIds = new HashSet<>(friendsOfUser);
         commonIds.retainAll(friendsOfOther);
-
         return commonIds.stream()
                 .map(id -> userStorage.getUserById(id).orElse(null))
                 .filter(Objects::nonNull)

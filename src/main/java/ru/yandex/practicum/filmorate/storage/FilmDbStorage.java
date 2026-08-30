@@ -110,7 +110,24 @@ public class FilmDbStorage implements FilmStorage {
 
     private Integer resolveMpaRatingId(MpaRating mpaRating) {
         if (mpaRating == null) return null;
-        jdbcTemplate.update("MERGE INTO mpa_ratings (name) VALUES (?)", mpaRating.getName());
-        return jdbcTemplate.queryForObject("SELECT id FROM mpa_ratings WHERE name = ?", Integer.class, mpaRating.getName());
+
+        if (mpaRating.getId() != null) {
+            Integer count = jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM mpa_ratings WHERE id = ?", Integer.class, mpaRating.getId());
+            if (count > 0) {
+                return mpaRating.getId();
+            }
+            // если id не найден и name отсутствует — 404
+            if (mpaRating.getName() == null) {
+                throw new NotFoundException("Рейтинг MPA с id " + mpaRating.getId() + " не найден");
+            }
+        }
+
+        if (mpaRating.getName() != null) {
+            jdbcTemplate.update("MERGE INTO mpa_ratings (name) KEY(name) VALUES (?)", mpaRating.getName());
+            return jdbcTemplate.queryForObject(
+                    "SELECT id FROM mpa_ratings WHERE name = ?", Integer.class, mpaRating.getName());
+        }
+        return null;
     }
 }

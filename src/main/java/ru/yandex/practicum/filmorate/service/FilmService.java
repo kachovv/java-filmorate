@@ -12,7 +12,7 @@ import ru.yandex.practicum.filmorate.storage.*;
 
 import java.time.LocalDate;
 import java.util.Collection;
-import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -69,7 +69,7 @@ public class FilmService {
         Film film = filmStorage.getFilmById(id)
                 .orElseThrow(() -> new NotFoundException("Фильм с id = " + id + " не найден"));
         List<Genre> genres = genreStorage.getGenresByFilmId(id);
-        film.setGenres(new HashSet<>(genres));
+        film.setGenres(new LinkedHashSet<>(genres));
         return film;
     }
 
@@ -78,7 +78,7 @@ public class FilmService {
         return films.stream()
                 .peek(film -> {
                     List<Genre> genres = genreStorage.getGenresByFilmId(film.getId());
-                    film.setGenres(new HashSet<>(genres));
+                    film.setGenres(new LinkedHashSet<>(genres));
                 })
                 .collect(Collectors.toList());
     }
@@ -86,14 +86,24 @@ public class FilmService {
     public Film addFilm(Film film) {
         validateFilm(film);
         Film created = filmStorage.addFilm(film);
+
         if (film.getGenres() != null && !film.getGenres().isEmpty()) {
             for (Genre genre : film.getGenres()) {
-                Genre existingGenre = genreStorage.getGenreByName(genre.getName())
-                        .orElseThrow(() -> new ValidationException("Жанр " + genre.getName() + " не найден"));
+                Genre existingGenre = null;
+                if (genre.getId() != null) {
+                    existingGenre = genreStorage.getGenreById(genre.getId())
+                            .orElseThrow(() -> new NotFoundException("Жанр с id " + genre.getId() + " не найден"));
+                } else if (genre.getName() != null) {
+                    existingGenre = genreStorage.getGenreByName(genre.getName())
+                            .orElseThrow(() -> new NotFoundException("Жанр с name " + genre.getName() + " не найден"));
+                } else {
+                    throw new ValidationException("Жанр должен содержать id или name");
+                }
                 genreStorage.addGenreToFilm(created.getId(), existingGenre.getId());
             }
         }
-        created.setGenres(new HashSet<>(genreStorage.getGenresByFilmId(created.getId())));
+
+        created.setGenres(new LinkedHashSet<>(genreStorage.getGenresByFilmId(created.getId())));
         return created;
     }
 
@@ -104,14 +114,23 @@ public class FilmService {
         validateFilm(film);
         Film updated = filmStorage.updateFilm(film);
         genreStorage.removeAllGenresFromFilm(film.getId());
+
         if (film.getGenres() != null && !film.getGenres().isEmpty()) {
             for (Genre genre : film.getGenres()) {
-                Genre existingGenre = genreStorage.getGenreByName(genre.getName())
-                        .orElseThrow(() -> new ValidationException("Жанр " + genre.getName() + " не найден"));
+                Genre existingGenre = null;
+                if (genre.getId() != null) {
+                    existingGenre = genreStorage.getGenreById(genre.getId())
+                            .orElseThrow(() -> new NotFoundException("Жанр с id " + genre.getId() + " не найден"));
+                } else if (genre.getName() != null) {
+                    existingGenre = genreStorage.getGenreByName(genre.getName())
+                            .orElseThrow(() -> new NotFoundException("Жанр с name " + genre.getName() + " не найден"));
+                } else {
+                    throw new ValidationException("Жанр должен содержать id или name");
+                }
                 genreStorage.addGenreToFilm(film.getId(), existingGenre.getId());
             }
         }
-        updated.setGenres(new HashSet<>(genreStorage.getGenresByFilmId(film.getId())));
+        updated.setGenres(new LinkedHashSet<>(genreStorage.getGenresByFilmId(film.getId())));
         log.info("Фильм с id = {} успешно обновлён", updated.getId());
         return updated;
     }

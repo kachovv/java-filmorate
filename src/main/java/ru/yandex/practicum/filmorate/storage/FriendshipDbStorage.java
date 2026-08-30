@@ -1,11 +1,11 @@
 package ru.yandex.practicum.filmorate.storage;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Repository;
-import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.model.Friendship;
 import ru.yandex.practicum.filmorate.model.FriendshipStatus;
 
@@ -14,6 +14,7 @@ import java.sql.Statement;
 import java.util.List;
 import java.util.Optional;
 
+@Slf4j
 @Repository("friendshipDbStorage")
 public class FriendshipDbStorage implements FriendshipStorage {
 
@@ -34,7 +35,7 @@ public class FriendshipDbStorage implements FriendshipStorage {
 
     @Override
     public Friendship createFriendship(Integer userId, Integer friendId) {
-        Optional<Friendship> existing = getFriendship(userId, friendId);
+        Optional<Friendship> existing = getByUserPair(userId, friendId);
         if (existing.isPresent()) {
             return existing.get();
         }
@@ -45,7 +46,7 @@ public class FriendshipDbStorage implements FriendshipStorage {
             PreparedStatement ps = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
             ps.setInt(1, userId);
             ps.setInt(2, friendId);
-            ps.setString(3, FriendshipStatus.PENDING.name());
+            ps.setString(3, FriendshipStatus.CONFIRMED.name());
             return ps;
         }, keyHolder);
 
@@ -53,7 +54,7 @@ public class FriendshipDbStorage implements FriendshipStorage {
         friendship.setId(((Number) keyHolder.getKeys().get("ID")).intValue());
         friendship.setUserId(userId);
         friendship.setFriendId(friendId);
-        friendship.setStatus(FriendshipStatus.PENDING);
+        friendship.setStatus(FriendshipStatus.CONFIRMED);
         return friendship;
     }
 
@@ -65,59 +66,26 @@ public class FriendshipDbStorage implements FriendshipStorage {
     }
 
     @Override
-    public Optional<Friendship> getFriendship(int userId, int friendId) {
-        String sql = "SELECT * FROM friendships WHERE (user_id = ? AND friend_id = ?) OR (user_id = ? AND friend_id = ?)";
-        List<Friendship> list = jdbcTemplate.query(sql, FRIENDSHIP_ROW_MAPPER,
-                userId, friendId, friendId, userId);
+    public Optional<Friendship> getByUserPair(Integer userId, Integer friendId) {
+        String sql = "SELECT * FROM friendships WHERE user_id = ? AND friend_id = ?";
+        List<Friendship> list = jdbcTemplate.query(sql, FRIENDSHIP_ROW_MAPPER, userId, friendId);
         return list.isEmpty() ? Optional.empty() : Optional.of(list.get(0));
     }
 
     @Override
-    public List<Friendship> getFriendshipsByUserId(int userId) {
-        String sql = "SELECT * FROM friendships WHERE user_id = ?";
-        return jdbcTemplate.query(sql, FRIENDSHIP_ROW_MAPPER, userId);
-    }
-
-    @Override
-    public void deleteFriendship(Integer id) {
-        String sql = "DELETE FROM friendships WHERE id = ?";
-        int rows = jdbcTemplate.update(sql, id);
-        if (rows == 0) {
-            throw new NotFoundException("Дружба с id " + id + " не найдена");
-        }
-    }
-
-    @Override
-    public Friendship updateStatus(Integer friendshipId, FriendshipStatus status) {
-        String sql = "UPDATE friendships SET status = ? WHERE id = ?";
-        int rows = jdbcTemplate.update(sql, status.name(), friendshipId);
-        if (rows == 0) {
-            throw new NotFoundException("Дружба с id " + friendshipId + " не найдена");
-        }
-        return getById(friendshipId)
-                .orElseThrow(() -> new NotFoundException("Дружба с id " + friendshipId + " не найдена"));
-    }
-
-    @Override
-    public List<Friendship> getSentRequests(Integer userId) {
-        String sql = "SELECT * FROM friendships WHERE user_id = ? AND status = ?";
-        return jdbcTemplate.query(sql, FRIENDSHIP_ROW_MAPPER, userId, FriendshipStatus.PENDING.name());
-    }
-
-    @Override
-    public List<Friendship> getReceivedRequests(Integer userId) {
-        String sql = "SELECT * FROM friendships WHERE friend_id = ? AND status = ?";
-        return jdbcTemplate.query(sql, FRIENDSHIP_ROW_MAPPER, userId, FriendshipStatus.PENDING.name());
-    }
-
-    @Override
     public List<Friendship> getConfirmedFriendships(Integer userId) {
-        String sql = "SELECT * FROM friendships WHERE (user_id = ? OR friend_id = ?) AND status = ?";
-        return jdbcTemplate.query(sql, FRIENDSHIP_ROW_MAPPER, userId, userId, FriendshipStatus.CONFIRMED.name());
+        String sql = "SELECT * FROM friendships WHERE user_id = ? AND status = ?";
+        return jdbcTemplate.query(sql, FRIENDSHIP_ROW_MAPPER, userId, FriendshipStatus.CONFIRMED.name());
     }
 
     @Override
-    public Optional<Friendship> getByUserPair(Integer userId, Integer friendId) {
-        return getFriendship(userId, friendId);
+    public void deleteByUserPair(Integer userId, Integer friendId) {
+        String sql = "DELETE FROM friendships WHERE user_id = ? AND friend_id = ?";
+        int rows = jdbcTemplate.update(sql, userId, friendId);
+        if (rows == 0) {
+            log.info("Запись о дружбе между {} и {} не найдена, удаление пропущено", userId, friendId);
+        } else {
+            log.info("Удалена дружба между {} и {}", userId, friendId);
+        }
     }
 }
