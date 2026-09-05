@@ -1,0 +1,170 @@
+CREATE TABLE IF NOT EXISTS users
+(
+    id
+    INTEGER
+    GENERATED
+    BY
+    DEFAULT AS
+    IDENTITY
+    PRIMARY
+    KEY,
+    email
+    VARCHAR
+(
+    255
+) NOT NULL,
+    login VARCHAR
+(
+    255
+) NOT NULL,
+    name VARCHAR
+(
+    255
+),
+    birthday DATE
+    );
+
+CREATE TABLE IF NOT EXISTS mpa_ratings
+(
+    id
+    INTEGER
+    GENERATED
+    BY
+    DEFAULT AS
+    IDENTITY,
+    name
+    VARCHAR
+(
+    50
+) NOT NULL PRIMARY KEY,
+    CONSTRAINT mpa_ratings_id_unique UNIQUE
+(
+    id
+)
+    );
+
+CREATE TABLE IF NOT EXISTS films
+(
+    id
+    INTEGER
+    GENERATED
+    BY
+    DEFAULT AS
+    IDENTITY
+    PRIMARY
+    KEY,
+    name
+    VARCHAR
+(
+    255
+) NOT NULL,
+    description VARCHAR
+(
+    200
+),
+    release_date DATE,
+    duration INTEGER,
+    mpa_rating_id INTEGER REFERENCES mpa_ratings
+(
+    id
+)
+    );
+
+CREATE TABLE IF NOT EXISTS genres
+(
+    id
+    INTEGER
+    GENERATED
+    BY
+    DEFAULT AS
+    IDENTITY,
+    name
+    VARCHAR
+(
+    50
+) NOT NULL PRIMARY KEY,
+    CONSTRAINT genres_id_unique UNIQUE
+(
+    id
+)
+    );
+
+CREATE TABLE IF NOT EXISTS film_genres
+(
+    film_id
+    INTEGER
+    REFERENCES
+    films
+(
+    id
+) ON DELETE CASCADE,
+    genre_id INTEGER REFERENCES genres
+(
+    id
+)
+  ON DELETE CASCADE,
+    PRIMARY KEY
+(
+    film_id,
+    genre_id
+)
+    );
+
+CREATE TABLE IF NOT EXISTS friendships
+(
+    id
+    INTEGER
+    GENERATED
+    BY
+    DEFAULT AS
+    IDENTITY
+    PRIMARY
+    KEY,
+    user_id
+    INTEGER
+    NOT
+    NULL
+    REFERENCES
+    users
+(
+    id
+) ON DELETE CASCADE,
+    friend_id INTEGER NOT NULL REFERENCES users
+(
+    id
+)
+  ON DELETE CASCADE,
+    status VARCHAR
+(
+    20
+) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT unique_friendship UNIQUE
+(
+    user_id,
+    friend_id
+)
+    );
+
+CREATE TABLE IF NOT EXISTS likes
+(
+    film_id
+    INTEGER
+    NOT
+    NULL
+    REFERENCES
+    films
+(
+    id
+) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users
+(
+    id
+)
+  ON DELETE CASCADE,
+    PRIMARY KEY
+(
+    film_id,
+    user_id
+)
+    );

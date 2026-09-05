@@ -22,27 +22,15 @@ public class UserController {
     }
 
     @GetMapping("/{id}/friends")
-    public List<User> getConfirmedFriends(@PathVariable int id) {
-        log.info("Запрос на получение списка подтвержденных друзей пользователя {}", id);
-        return userService.getConfirmedFriends(id);
+    public List<User> getFriends(@PathVariable int id) {
+        log.info("Запрос на получение списка друзей пользователя {}", id);
+        return userService.getFriends(id);
     }
 
     @GetMapping("/{id}/friends/common/{otherId}")
     public List<User> getCommonFriends(@PathVariable int id, @PathVariable int otherId) {
         log.info("Запрос на получение общих друзей пользователей {} и {}", id, otherId);
         return userService.getCommonFriends(id, otherId);
-    }
-
-    @GetMapping("/{id}/friends/requests/sent")
-    public List<User> getSentRequests(@PathVariable int id) {
-        log.info("Запрос исходящих заявок пользователя {}", id);
-        return userService.getSentRequests(id);
-    }
-
-    @GetMapping("/{id}/friends/requests/received")
-    public List<User> getReceivedRequests(@PathVariable int id) {
-        log.info("Запрос на получение входящих заявок пользователя {}", id);
-        return userService.getReceivedRequests(id);
     }
 
     @GetMapping
@@ -67,20 +55,15 @@ public class UserController {
     }
 
     @PutMapping("/{id}/friends/{friendId}")
-    public void sendFriendRequest(@PathVariable int id, @PathVariable int friendId) {
+    public User addFriend(@PathVariable int id, @PathVariable int friendId) {
         log.info("Пользователь {} добавляет в друзья {}", id, friendId);
-        userService.sendFriendRequest(id, friendId);
+        userService.addFriend(id, friendId);
+        return userService.getUserById(id);
     }
 
-    @PutMapping("/{id}/friends/requests/{friendId}/accept")
-        public void acceptFriendRequest(@PathVariable int id, @PathVariable int friendId) {
-        log.info("Пользователь {} подтверждает заявку от {}", id, friendId);
-        userService.acceptFriendRequest(id, friendId);
-    }
-
-    @DeleteMapping("/{id}/friends/requests/{friendId}/reject")
-    public void rejectFriendRequest(@PathVariable int id, @PathVariable int friendId) {
-        log.info("Пользователь {} отклоняет заявку от {}", id, friendId);
-        userService.rejectFriendRequest(id, friendId);
+    @DeleteMapping("/{id}/friends/{friendId}")
+    public void removeFriend(@PathVariable int id, @PathVariable int friendId) {
+        log.info("Пользователь {} удаляет из друзей {}", id, friendId);
+        userService.removeFriend(id, friendId);
     }
 }
